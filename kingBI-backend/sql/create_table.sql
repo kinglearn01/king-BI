@@ -71,7 +71,7 @@ create table if not exists chart
     id           bigint auto_increment comment 'id' primary key,
     goal        text null comment "分析目标",
     `name` varchar(128) null comment "图表名称",
-    chartDate   text null comment "图表数据",
+    chartData   text null comment "图表数据",
     chartType   varchar(128)   comment "图表类型",
     genResult   text   comment "生成的分析结论",
     userId     bigint  comment "创建用户 id",

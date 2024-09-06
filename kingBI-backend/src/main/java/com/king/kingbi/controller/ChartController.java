@@ -1,7 +1,5 @@
 package com.king.kingbi.controller;
 
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.king.kingbi.annotation.AuthCheck;
@@ -10,28 +8,20 @@ import com.king.kingbi.common.DeleteRequest;
 import com.king.kingbi.common.ErrorCode;
 import com.king.kingbi.common.ResultUtils;
 import com.king.kingbi.constant.CommonConstant;
-import com.king.kingbi.constant.FileConstant;
 import com.king.kingbi.constant.UserConstant;
 import com.king.kingbi.exception.BusinessException;
 import com.king.kingbi.exception.ThrowUtils;
+import com.king.kingbi.manager.AiManager;
 import com.king.kingbi.model.dto.chart.*;
-import com.king.kingbi.model.dto.file.UploadFileRequest;
-import com.king.kingbi.model.dto.post.PostQueryRequest;
 import com.king.kingbi.model.entity.Chart;
-import com.king.kingbi.model.entity.Post;
 import com.king.kingbi.model.entity.User;
-import com.king.kingbi.model.enums.FileUploadBizEnum;
-import com.king.kingbi.model.vo.ChartVO;
+import com.king.kingbi.model.vo.BiResponse;
 import com.king.kingbi.service.ChartService;
 import com.king.kingbi.service.UserService;
 import com.king.kingbi.utils.ExcelUtils;
 import com.king.kingbi.utils.SqlUtils;
-import java.io.File;
-import java.util.List;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
@@ -53,6 +43,9 @@ public class ChartController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiManager aiManager;
 
     // region 增删改查
 
@@ -220,45 +213,47 @@ public class ChartController {
 
     /**
      * 智能分析
+     *
      * @param multipartFile
      * @param genChartByAiRequest
      * @param request
      * @return
      */
     @PostMapping("/gen")
-    public BaseResponse<String> getChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                             GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+    public BaseResponse<BiResponse> getChartByAi(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
-        String chartType = genChartByAiRequest.getChartType();
-        //校验
         ThrowUtils.throwIf(StringUtils.isBlank(goal),ErrorCode.PARAMS_ERROR,"目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(name)&&name.length()>100,ErrorCode.PARAMS_ERROR,"名称过长");
-       String result = ExcelUtils.excelToCsv(multipartFile);
-       return ResultUtils.success(result);
-//        User loginUser = userService.getLoginUser(request);
-//        // 文件目录：根据业务、用户来划分
-//        String uuid = RandomStringUtils.randomAlphanumeric(8);
-//        String filename = uuid + "-" + multipartFile.getOriginalFilename();
 
-//        File file = null;
-//        try {
-//            // 上传文件
-//
-//            // 返回可访问地址
-//            return ResultUtils.success("");
-//        } catch (Exception e) {
-////            log.error("file upload error, filepath = " + filepath, e);
-//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "上传失败");
-//        } finally {
-//            if (file != null) {
-//                // 删除临时文件
-//                boolean delete = file.delete();
-////                if (!delete) {
-//////                    log.error("file delete error, filepath = {}", filepath);
-////                }
-//            }
-//        }
+        String chartType = genChartByAiRequest.getChartType();
+        long   biModelID=1831965769010241538L;
+        //用户输入
+        StringBuilder userInput = new StringBuilder();
+        userInput.append("分析需求：").append("\n");
+        userInput.append(goal).append("\n");
+        userInput.append("原始数据：").append("\n");
+        //压缩后的数据
+        String casvData = ExcelUtils.excelToCsv(multipartFile);
+        userInput.append(casvData).append("\n");
+
+        String result = aiManager.doChart(biModelID, userInput.toString());
+        String[] split = result.split("【【【【【");
+        if (split.length<3){
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"Ai生成错误");
+        }
+        String genChart = split[1].trim();
+        String genResult = split[2].trim();
+//        插入到数据库
+        Chart chart = new Chart();
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+        //校验
+       return ResultUtils.success(biResponse);
+
     }
 
     private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {

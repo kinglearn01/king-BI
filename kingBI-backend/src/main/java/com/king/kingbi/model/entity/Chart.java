@@ -30,7 +30,7 @@ public class Chart implements Serializable {
     /**
      * 图表数据
      */
-    private String chartDate;
+    private String chartData;
 
     /**
      * 图表类型
@@ -41,6 +41,10 @@ public class Chart implements Serializable {
      * 生成的分析结论
      */
     private String genResult;
+    /**
+     * 生成的分析结论
+     */
+    private String genChart;
 
     /**
      * 创建用户 id

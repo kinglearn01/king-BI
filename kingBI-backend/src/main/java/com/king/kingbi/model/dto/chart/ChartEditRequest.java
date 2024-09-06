@@ -36,7 +36,7 @@ public class ChartEditRequest  implements Serializable {
     /**
      * 图表数据
      */
-    private String chartDate;
+    private String chartData;
 
     /**
      * 图表类型

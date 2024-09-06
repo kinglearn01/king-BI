@@ -101,3 +101,7 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.king.kingbi.controller
+yuapi:
+  client:
+    access-key: c8nbdsa6xdc8c1asmpwzb00p4yjyc3n4
+    secret-key: aevoe7x1av3ks138v8pejxgfqw3895td
