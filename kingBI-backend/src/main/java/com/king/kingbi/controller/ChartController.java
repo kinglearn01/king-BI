@@ -1,28 +1,30 @@
 package com.king.kingbi.controller;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.king.kingbi.annotation.AuthCheck;
-import com.king.kingbi.common.BaseResponse;
-import com.king.kingbi.common.DeleteRequest;
-import com.king.kingbi.common.ErrorCode;
-import com.king.kingbi.common.ResultUtils;
+import com.king.kingbi.common.*;
 import com.king.kingbi.constant.CommonConstant;
 import com.king.kingbi.constant.UserConstant;
 import com.king.kingbi.exception.BusinessException;
 import com.king.kingbi.exception.ThrowUtils;
-import com.king.kingbi.manager.AiManager;
+import com.king.kingbi.model.AI.AIResultDto;
 import com.king.kingbi.model.dto.chart.*;
 import com.king.kingbi.model.entity.Chart;
 import com.king.kingbi.model.entity.User;
 import com.king.kingbi.model.vo.BiResponse;
 import com.king.kingbi.service.ChartService;
 import com.king.kingbi.service.UserService;
-import com.king.kingbi.utils.ExcelUtils;
 import com.king.kingbi.utils.SqlUtils;
+import com.king.kingbi.utils.excelAnalysis.AiUtils;
+import com.king.kingbi.utils.excelAnalysis.ExcelUtils;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,8 +46,11 @@ public class ChartController {
     @Resource
     private UserService userService;
 
+    @Resource RedissonClient redissonClient;
+
     @Resource
-    private AiManager aiManager;
+    private ThreadPoolExecutor threadPoolExecutor;
+
 
     // region 增删改查
 
@@ -212,7 +217,7 @@ public class ChartController {
     }
 
     /**
-     * 智能分析
+     * 智能分析同步
      *
      * @param multipartFile
      * @param genChartByAiRequest
@@ -221,41 +226,121 @@ public class ChartController {
      */
     @PostMapping("/gen")
     public BaseResponse<BiResponse> getChartByAi(@RequestPart("file") MultipartFile multipartFile,
-                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+                                                  GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
         String name = genChartByAiRequest.getName();
         String goal = genChartByAiRequest.getGoal();
+        String chartType = genChartByAiRequest.getChartType();
         ThrowUtils.throwIf(StringUtils.isBlank(goal),ErrorCode.PARAMS_ERROR,"目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(name)&&name.length()>100,ErrorCode.PARAMS_ERROR,"名称过长");
+        ThrowUtils.throwIf(com.alibaba.excel.util.StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR);
 
-        String chartType = genChartByAiRequest.getChartType();
-        long   biModelID=1831965769010241538L;
+
+        final long ONE_MB = 1024 * 1024L;
+        long size = multipartFile.getSize();
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大");
+        String originalFilename = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(originalFilename);
+        ThrowUtils.throwIf(StringUtils.isBlank(suffix), ErrorCode.PARAMS_ERROR, "文件名异常");
+        boolean isExcel = suffix.equals("xlsx") || suffix.equals("xls");
+        ThrowUtils.throwIf(!isExcel,ErrorCode.PARAMS_ERROR,"文件类型错误");
         //用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-        userInput.append(goal).append("\n");
-        userInput.append("原始数据：").append("\n");
-        //压缩后的数据
-        String casvData = ExcelUtils.excelToCsv(multipartFile);
-        userInput.append(casvData).append("\n");
+        StringBuilder res = new StringBuilder();
+        res.append("你是一个数据分析师和前端开发专家，接下来我会按照以下固定格式给你提供内容：");
+        res.append("\n").append("分析需求：").append("\n").append("{").append(goal).append("}").append("\n");
+        String data = ExcelUtils.excelToCsv(multipartFile);
+        res.append("原始数据:").append("\n").append(data);
+        res.append("请根据这两部分内容，按照以下指定格式生成内容（此外不要输出任何多余的开头、结尾、注释）\n【【【【【\n先输出上面原始数据的分析结果：\n然后输出【【【【【\n{前端 Echarts V5 的 option 配置对象JSON代码，生成");
+        res.append(chartType);
+        res.append("合理地将数据进行可视化，不要生成任何多余的内容，不要注释}");
 
-        String result = aiManager.doChart(biModelID, userInput.toString());
-        String[] split = result.split("【【【【【");
-        if (split.length<3){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"Ai生成错误");
-        }
-        String genChart = split[1].trim();
-        String genResult = split[2].trim();
-//        插入到数据库
         Chart chart = new Chart();
-
+        chart.setName(name);
+        chart.setUserId(loginUser.getId());
+        chart.setGoal(goal);
+        chart.setChartData(data);
+        chart.setChartType(chartType);
+        boolean save = chartService.save(chart);
+        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
+        AiUtils aiUtils = new AiUtils(redissonClient);
+        AIResultDto ans = aiUtils.getAns(chart.getId(), res.toString());
+        chart.setGenChart(ans.getChartData());
+        chart.setGenResult(ans.getOnAnalysis());
+        chart.setStatus(ChartStatus.CHART_STATUS_SUCCESS);
+        boolean b = chartService.updateById(chart);
         BiResponse biResponse = new BiResponse();
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
+        biResponse.setChartId(chart.getId());
         //校验
-       return ResultUtils.success(biResponse);
-
+        return ResultUtils.success(biResponse);
     }
+    @PostMapping("/gen/async")
+    public BaseResponse<BiResponse> getChartByAiAsync(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAiRequest genChartByAiRequest, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        String name = genChartByAiRequest.getName();
+        String goal = genChartByAiRequest.getGoal();
+        String chartType = genChartByAiRequest.getChartType();
+        ThrowUtils.throwIf(StringUtils.isBlank(goal),ErrorCode.PARAMS_ERROR,"目标为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(name)&&name.length()>100,ErrorCode.PARAMS_ERROR,"名称过长");
+        ThrowUtils.throwIf(com.alibaba.excel.util.StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR);
+        final long ONE_MB = 1024 * 1024L;
+        long size = multipartFile.getSize();
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大");
+        String originalFilename = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(originalFilename);
+        ThrowUtils.throwIf(StringUtils.isBlank(suffix), ErrorCode.PARAMS_ERROR, "文件名异常");
+        boolean isExcel = suffix.equals("xlsx") || suffix.equals("xls");
+        ThrowUtils.throwIf(!isExcel,ErrorCode.PARAMS_ERROR,"文件类型错误");
+        //用户输入
+        StringBuilder res = new StringBuilder();
+        res.append("你是一个数据分析师和前端开发专家，接下来我会按照以下固定格式给你提供内容：");
+        res.append("\n").append("分析需求：").append("\n").append("{").append(goal).append("}").append("\n");
+        String data = ExcelUtils.excelToCsv(multipartFile);
+        res.append("原始数据:").append("\n").append(data);
+        res.append("请根据这两部分内容，按照以下指定格式生成内容（此外不要输出任何多余的开头、结尾、注释）\n【【【【【\n先输出上面原始数据的分析结果：\n然后输出【【【【【\n{前端 Echarts V5 的 option 配置对象JSON代码，生成");
+        res.append(chartType);
+        res.append("合理地将数据进行可视化，不要生成任何多余的内容，不要注释}");
 
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setUserId(loginUser.getId());
+        chart.setGoal(goal);
+        chart.setChartData(data);
+        chart.setChartType(chartType);
+        boolean save = chartService.save(chart);
+        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
+        CompletableFuture.runAsync(()->{
+            try {
+                Chart updateChart = new Chart();
+                updateChart.setId(chart.getId());
+                updateChart.setStatus(ChartStatus.CHART_STATUS_RUNNING);
+                boolean b = chartService.updateById(updateChart);
+                if (!b) {
+                    handleChartUpdateError(chart.getId(),  "更新图表执行中状态失败");
+                    return;
+                }
+                log.info(" 执行");
+                AiUtils aiUtils = new AiUtils(redissonClient);
+                AIResultDto ans = aiUtils.getAns(chart.getId(),  res.toString());
+                Chart updateChartResult = new Chart();
+                updateChartResult.setId(chart.getId());
+                updateChartResult.setGenChart(ans.getChartData());
+                updateChartResult.setGenResult(ans.getOnAnalysis());
+                updateChartResult.setStatus(ChartStatus.CHART_STATUS_SUCCESS);
+                boolean updateResult = chartService.updateById(updateChartResult);
+                if (!updateResult) {
+                    handleChartUpdateError(chart.getId(),  "更新图表成功状态失败");
+                }
+            } catch (Exception e) {
+                log.error(" 异步任务执行失败", e);
+                handleChartUpdateError(chart.getId(),  "异步任务执行失败");
+            }
+        }, threadPoolExecutor);
+        BiResponse biResponse = new BiResponse();
+        biResponse.setChartId(chart.getId());
+        //校验
+        return ResultUtils.success(biResponse);
+    }
     private QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest) {
         QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
         if (chartQueryRequest == null) {
@@ -279,4 +364,15 @@ public class ChartController {
                 sortField);
         return queryWrapper;
     }
+    private void handleChartUpdateError(long chartId, String execMessage) {
+        Chart updateChartResult = new Chart();
+        updateChartResult.setId(chartId);
+        updateChartResult.setStatus("failed");
+        updateChartResult.setExecMessage("execMessage");
+        boolean updateResult = chartService.updateById(updateChartResult);
+        if (!updateResult) {
+            log.error("更新图表失败状态失败" + chartId + "," + execMessage);
+        }
+    }
+
 }

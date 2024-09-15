@@ -6,6 +6,7 @@ import {AvatarDropdown, AvatarName, Question} from "@/components";
 import Footer from "@/components/Footer";
 import {LinkOutlined} from "@ant-design/icons";
 import {SettingDrawer} from "@ant-design/pro-layout";
+import React from "react";
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -18,9 +19,7 @@ export async function getInitialState(): Promise<{
 }> {
   const fetchUserInfo = async () => {
     try {
-      const res = await getLoginUserUsingGet({
-        skipErrorHandler: true,
-      });
+      const res = await getLoginUserUsingGet();
       return res.data;
     } catch (error) {
       history.push(loginPath);

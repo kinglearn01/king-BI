@@ -6,7 +6,6 @@ import com.yupi.yucongming.dev.client.YuCongMingClient;
 import com.yupi.yucongming.dev.common.BaseResponse;
 import com.yupi.yucongming.dev.model.DevChatRequest;
 import com.yupi.yucongming.dev.model.DevChatResponse;
-import org.apache.tomcat.util.buf.ByteChunk;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;

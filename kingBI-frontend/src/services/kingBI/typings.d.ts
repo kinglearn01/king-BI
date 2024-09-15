@@ -1,4 +1,10 @@
 declare namespace API {
+  type BaseResponseBiResponse_ = {
+    code?: number;
+    data?: BiResponse;
+    message?: string;
+  };
+
   type BaseResponseBoolean_ = {
     code?: number;
     data?: boolean;
@@ -83,29 +89,41 @@ declare namespace API {
     message?: string;
   };
 
+  type BiResponse = {
+    chartId?: number;
+    genChart?: string;
+    genResult?: string;
+  };
+
   type Chart = {
-    chartDate?: string;
+    chartData?: string;
     chartType?: string;
     createTime?: string;
+    execMessage?: string;
+    genChart?: string;
     genResult?: string;
     goal?: string;
     id?: number;
     isDelete?: number;
+    name?: string;
+    status?: string;
     updateTime?: string;
     userId?: number;
   };
 
   type ChartAddRequest = {
-    chartDate?: string;
+    chartData?: string;
     chartType?: string;
     goal?: string;
+    name?: string;
   };
 
   type ChartEditRequest = {
-    chartDate?: string;
+    chartData?: string;
     chartType?: string;
     goal?: string;
     id?: number;
+    name?: string;
   };
 
   type ChartQueryRequest = {
@@ -113,6 +131,7 @@ declare namespace API {
     current?: number;
     goal?: string;
     id?: number;
+    name?: string;
     pageSize?: number;
     sortField?: string;
     sortOrder?: string;
@@ -120,13 +139,15 @@ declare namespace API {
   };
 
   type ChartUpdateRequest = {
-    chartDate?: string;
+    chartData?: string;
     chartType?: string;
     createTime?: string;
+    genChart?: string;
     genResult?: string;
     goal?: string;
     id?: number;
     isDelete?: number;
+    name?: string;
     updateTime?: string;
     userId?: number;
   };
@@ -146,7 +167,19 @@ declare namespace API {
     id?: number;
   };
 
-  type getChartVOByIdUsingGETParams = {
+  type getChartByAiAsyncUsingPOSTParams = {
+    chartType?: string;
+    goal?: string;
+    name?: string;
+  };
+
+  type getChartByAiUsingPOSTParams = {
+    chartType?: string;
+    goal?: string;
+    name?: string;
+  };
+
+  type getChartByIdUsingGETParams = {
     /** id */
     id?: number;
   };
@@ -351,11 +384,6 @@ declare namespace API {
     userAvatar?: string;
     userName?: string;
     userRole?: string;
-  };
-
-  type userLoginByWxOpenUsingGETParams = {
-    /** code */
-    code: string;
   };
 
   type UserLoginRequest = {
