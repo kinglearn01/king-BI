@@ -2,7 +2,7 @@ package com.king.kingbi.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.king.kingbi.model.dto.post.PostQueryRequest;
-import com.king.kingbi.model.entity.Post;
+
 import javax.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

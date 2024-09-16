@@ -1,6 +1,5 @@
 package com.king.kingbi.mapper;
 
-import com.king.kingbi.model.entity.Post;
 import java.util.Date;
 import java.util.List;
 import javax.annotation.Resource;
