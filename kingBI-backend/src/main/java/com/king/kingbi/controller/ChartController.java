@@ -115,9 +115,8 @@ public class ChartController {
         }
         Chart chart = new Chart();
         BeanUtils.copyProperties(chartUpdateRequest, chart);
-
 //        // 参数校验
-//        chartService.validChart(chart, false);
+
         long id = chartUpdateRequest.getId();
         // 判断是否存在
         Chart oldChart = chartService.getById(id);
@@ -234,8 +233,6 @@ public class ChartController {
         ThrowUtils.throwIf(StringUtils.isBlank(goal),ErrorCode.PARAMS_ERROR,"目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(name)&&name.length()>100,ErrorCode.PARAMS_ERROR,"名称过长");
         ThrowUtils.throwIf(com.alibaba.excel.util.StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR);
-
-
         final long ONE_MB = 1024 * 1024L;
         long size = multipartFile.getSize();
         ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件过大");
@@ -260,6 +257,7 @@ public class ChartController {
         chart.setGoal(goal);
         chart.setChartData(data);
         chart.setChartType(chartType);
+        chart.setExecMessage("执行中");
         boolean save = chartService.save(chart);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
         AiUtils aiUtils = new AiUtils(redissonClient);
@@ -267,10 +265,14 @@ public class ChartController {
         chart.setGenChart(ans.getChartData());
         chart.setGenResult(ans.getOnAnalysis());
         chart.setStatus(ChartStatus.CHART_STATUS_SUCCESS);
+        chart.setExecMessage("执行完成");
         boolean b = chartService.updateById(chart);
+        ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
         BiResponse biResponse = new BiResponse();
         biResponse.setChartId(chart.getId());
-        //校验
+        biResponse.setGenChart(chart.getGenChart());
+        biResponse.setGenResult(chart.getGenResult());
+
         return ResultUtils.success(biResponse);
     }
     @PostMapping("/gen/async")
@@ -307,6 +309,7 @@ public class ChartController {
         chart.setGoal(goal);
         chart.setChartData(data);
         chart.setChartType(chartType);
+        chart.setExecMessage("执行中");
         boolean save = chartService.save(chart);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
         CompletableFuture.runAsync(()->{
@@ -319,7 +322,6 @@ public class ChartController {
                     handleChartUpdateError(chart.getId(),  "更新图表执行中状态失败");
                     return;
                 }
-                log.info(" 执行");
                 AiUtils aiUtils = new AiUtils(redissonClient);
                 AIResultDto ans = aiUtils.getAns(chart.getId(),  res.toString());
                 Chart updateChartResult = new Chart();
@@ -332,11 +334,11 @@ public class ChartController {
                     handleChartUpdateError(chart.getId(),  "更新图表成功状态失败");
                 }
             } catch (Exception e) {
-                log.error(" 异步任务执行失败", e);
                 handleChartUpdateError(chart.getId(),  "异步任务执行失败");
             }
         }, threadPoolExecutor);
         BiResponse biResponse = new BiResponse();
+        chart.setExecMessage("执行完成");
         biResponse.setChartId(chart.getId());
         //校验
         return ResultUtils.success(biResponse);

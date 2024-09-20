@@ -1,6 +1,6 @@
 # 公共配置文件
 #
-# 
+#
 spring:
   application:
     name: kingBI-backend
@@ -13,10 +13,9 @@ spring:
       matching-strategy: ant_path_matcher
   # session 配置
   session:
-    # todo 取消注释开启分布式 session（须先配置 Redis）
-    # store-type: redis
+#     store-type: redis
     # 30 天过期
-    timeout: 2592000
+     timeout: 2592000
   # 数据库配置
   # todo 需替换配置
   datasource:
@@ -31,12 +30,11 @@ spring:
     host: localhost
     port: 6379
     timeout: 5000
-  # Elasticsearch 配置
-  # todo 需替换配置，然后取消注释
-#  elasticsearch:
-#    uris: http://localhost:9200
-#    username: root
-#    password: 123456
+  rabbitmq:
+    port: 5672
+    password: guest
+    username: guest
+    virtual-host: /
   # 文件上传
   servlet:
     multipart:
@@ -100,9 +98,6 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.king.kingbi.controller
-yuapi:
-  client:
-    access-key: c8nbdsa6xdc8c1asmpwzb00p4yjyc3n4
-    secret-key: aevoe7x1av3ks138v8pejxgfqw3895td
+
 
 

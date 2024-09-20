@@ -1,7 +1,6 @@
 package com.king.kingbi.manager;
 
 import com.king.kingbi.common.ErrorCode;
-import org.checkerframework.checker.fenum.qual.AwtCursorType;
 import org.redisson.api.RRateLimiter;
 import org.redisson.api.RateIntervalUnit;
 import org.redisson.api.RateType;

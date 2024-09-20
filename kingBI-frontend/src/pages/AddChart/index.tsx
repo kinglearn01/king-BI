@@ -23,6 +23,7 @@ const AddChart: React.FC = () => {
     }
     try {
       const res = await getChartByAiUsingPost(params,{},values.file.file.originFileObj)
+      console.log(res.data)
      if (!res?.data){
        message.error("分析失败系统错误")
      }else {
@@ -34,7 +35,7 @@ const AddChart: React.FC = () => {
          setChart(res.data)
          setOption(chartOption)
        }
-
+       console.log(res)
      }
     }catch (e:any){
       message.error("分析失败"+e.message)
@@ -42,6 +43,7 @@ const AddChart: React.FC = () => {
     setSubmitting(false);
   };
   return (
+
     <div className="add_chart">
       <Row  gutter={24}>
         <Col span={12}>
@@ -80,7 +82,7 @@ const AddChart: React.FC = () => {
                 label="原始数据"
               >
                 <Upload name="file" maxCount={1}>
-                  <Button icon={<UploadOutlined/>}>上传CSV文件</Button>
+                  <Button icon={<UploadOutlined/>}>上传xlsx文件</Button>
                 </Upload>
               </Form.Item>
               <Form.Item wrapperCol={{span: 12, offset: 6}}>

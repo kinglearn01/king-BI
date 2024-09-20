@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class RedisLimiterManagerTest {
     @Resource
-    RedisLimiterManager redisLimiterManager;
+    private RedisLimiterManager redisLimiterManager;
 
     @Test
     void doRateLimit() {

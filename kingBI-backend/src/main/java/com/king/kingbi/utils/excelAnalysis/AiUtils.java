@@ -14,8 +14,8 @@ public class AiUtils {
         bigModelNew.getResult(question);
         String aReturn = bigModelNew.getReturn();
         System.out.println(aReturn);
-        String chartData = "服务错误";
-        String onAnalysis = "服务错误";
+        String chartData = "";
+        String onAnalysis = "";
         if(aReturn.contains("：") && aReturn.contains("然后输出【【【【【"))
             onAnalysis = aReturn.substring(aReturn.indexOf("：") + 1,aReturn.indexOf("然后输出【【【【【"));
         String[] split = aReturn.split("```json");
@@ -25,6 +25,8 @@ public class AiUtils {
         AIResultDto aiResultDto = new AIResultDto();
         aiResultDto.setChartData(chartData.trim());
         aiResultDto.setOnAnalysis(onAnalysis.trim());
+        System.out.println(onAnalysis);
+        System.out.println(chartData);
         return aiResultDto;
     }
 }

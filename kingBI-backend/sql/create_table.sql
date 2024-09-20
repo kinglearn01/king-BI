@@ -1,7 +1,6 @@
 # 数据库初始化
 #
 #
-
 -- 创建库
 create database if not exists kingBI_db;
 
@@ -25,8 +24,6 @@ create table if not exists user
     isDelete     tinyint      default 0                 not null comment '是否删除',
     index idx_unionId (unionId)
 ) comment '用户' collate = utf8mb4_unicode_ci;
-
-
 
 
 
